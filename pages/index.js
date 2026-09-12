@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [invoiceNumber, setInvoiceNumber] = useState("INV-001");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState("");
+  const [status, setStatus] = useState("Unpaid");
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [toName, setToName] = useState("");
@@ -17,7 +19,6 @@ export default function Home() {
   const [logo, setLogo] = useState(null);
   const [savedInvoices, setSavedInvoices] = useState([]);
   const [showSaved, setShowSaved] = useState(false);
-  const printRef = useRef(null);
 
   const currencies = ["USD", "NGN", "EUR", "GBP", "CAD", "AUD"];
 
@@ -31,6 +32,8 @@ export default function Home() {
         const data = JSON.parse(draft);
         setInvoiceNumber(data.invoiceNumber || "INV-001");
         setDate(data.date || new Date().toISOString().slice(0, 10));
+        setDueDate(data.dueDate || "");
+        setStatus(data.status || "Unpaid");
         setFromName(data.fromName || "");
         setFromEmail(data.fromEmail || "");
         setToName(data.toName || "");
@@ -54,11 +57,11 @@ export default function Home() {
 
   useEffect(() => {
     const data = {
-      invoiceNumber, date, fromName, fromEmail,
+      invoiceNumber, date, dueDate, status, fromName, fromEmail,
       toName, toEmail, items, taxRate, notes, currency, darkMode
     };
     localStorage.setItem("invoice-draft", JSON.stringify(data));
-  }, [invoiceNumber, date, fromName, fromEmail, toName, toEmail, items, taxRate, notes, currency, darkMode]);
+  }, [invoiceNumber, date, dueDate, status, fromName, fromEmail, toName, toEmail, items, taxRate, notes, currency, darkMode]);
 
   useEffect(() => {
     localStorage.setItem("saved-invoices", JSON.stringify(savedInvoices));
@@ -79,10 +82,7 @@ export default function Home() {
     setItems(items.filter(item => item.id !== id));
   }
 
-  const subtotal = items.reduce((sum, item) => {
-    return sum + (Number(item.quantity) * Number(item.price));
-  }, 0);
-
+  const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
   const taxAmount = subtotal * (Number(taxRate) / 100);
   const total = subtotal + taxAmount;
 
@@ -111,6 +111,8 @@ export default function Home() {
       id: Date.now(),
       invoiceNumber,
       date,
+      dueDate,
+      status,
       fromName,
       fromEmail,
       toName,
@@ -131,6 +133,8 @@ export default function Home() {
   function loadInvoice(invoice) {
     setInvoiceNumber(invoice.invoiceNumber);
     setDate(invoice.date);
+    setDueDate(invoice.dueDate || "");
+    setStatus(invoice.status || "Unpaid");
     setFromName(invoice.fromName);
     setFromEmail(invoice.fromEmail);
     setToName(invoice.toName);
@@ -152,6 +156,8 @@ export default function Home() {
     if (!confirm("Clear this invoice?")) return;
     setInvoiceNumber("INV-001");
     setDate(new Date().toISOString().slice(0, 10));
+    setDueDate("");
+    setStatus("Unpaid");
     setFromName("");
     setFromEmail("");
     setToName("");
@@ -161,12 +167,14 @@ export default function Home() {
     setNotes("Thank you for your business.");
   }
 
-  const bg = darkMode ? "#0f172a" : "#f8fafc";
-  const card = darkMode ? "#1e293b" : "#ffffff";
-  const text = darkMode ? "#f1f5f9" : "#0f172a";
+  const bg = darkMode ? "#0b1220" : "#f8fafc";
+  const card = darkMode ? "#111827" : "#ffffff";
+  const text = darkMode ? "#f8fafc" : "#0f172a";
   const muted = darkMode ? "#94a3b8" : "#64748b";
-  const border = darkMode ? "#334155" : "#e2e8f0";
-  const inputBg = darkMode ? "#0f172a" : "#ffffff";
+  const border = darkMode ? "#1f2937" : "#e2e8f0";
+  const inputBg = darkMode ? "#0b1220" : "#ffffff";
+
+  const statusColor = status === "Paid" ? "#16a34a" : "#dc2626";
 
   return (
     <div style={{
@@ -176,7 +184,7 @@ export default function Home() {
       fontFamily: "system-ui, -apple-system, sans-serif",
       padding: "20px 16px"
     }}>
-      <div style={{ maxWidth: "850px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "880px", margin: "0 auto" }}>
         
         {/* Header */}
         <div style={{
@@ -184,17 +192,18 @@ export default function Home() {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "20px",
-          flexWrap: "wrap",
-          gap: "10px"
+          gap: "10px",
+          flexWrap: "wrap"
         }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "700" }}>
-            Invoice Generator
-          </h1>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "700" }}>Invoice Generator</h1>
+            <p style={{ margin: "4px 0 0 0", color: muted, fontSize: "14px" }}>Create clean invoices in seconds</p>
+          </div>
           <button
             onClick={() => setDarkMode(!darkMode)}
             style={{
               padding: "8px 14px",
-              borderRadius: "8px",
+              borderRadius: "999px",
               border: `1px solid ${border}`,
               background: card,
               color: text,
@@ -206,7 +215,7 @@ export default function Home() {
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "18px", flexWrap: "wrap" }}>
           <button onClick={handlePrint} style={btnPrimary}>Print / Save PDF</button>
           <button onClick={saveInvoice} style={btnSuccess}>Save Invoice</button>
           <button onClick={() => setShowSaved(!showSaved)} style={{...btnSecondary, background: card, color: text, border: `1px solid ${border}`}}>
@@ -219,9 +228,9 @@ export default function Home() {
         {showSaved && (
           <div style={{
             backgroundColor: card,
-            borderRadius: "12px",
+            borderRadius: "14px",
             padding: "16px",
-            marginBottom: "20px",
+            marginBottom: "18px",
             border: `1px solid ${border}`
           }}>
             <h3 style={{ marginTop: 0 }}>Saved Invoices</h3>
@@ -233,13 +242,14 @@ export default function Home() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "10px 0",
+                  padding: "12px 0",
                   borderBottom: `1px solid ${border}`,
                   gap: "10px",
                   flexWrap: "wrap"
                 }}>
                   <div>
                     <strong>{inv.invoiceNumber}</strong> — {inv.toName || "No client"} — {inv.currency} {Number(inv.total).toFixed(2)}
+                    <div style={{ fontSize: "12px", color: muted }}>{inv.status || "Unpaid"}</div>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button onClick={() => loadInvoice(inv)} style={{...btnSmall, background: "#2563eb", color: "white"}}>Load</button>
@@ -252,20 +262,21 @@ export default function Home() {
         )}
 
         {/* Invoice Card */}
-        <div ref={printRef} className="invoice-print" style={{
+        <div className="invoice-print" style={{
           backgroundColor: card,
-          borderRadius: "16px",
-          padding: "24px",
+          borderRadius: "18px",
+          padding: "28px",
           border: `1px solid ${border}`,
-          marginBottom: "24px"
+          marginBottom: "24px",
+          boxShadow: darkMode ? "none" : "0 8px 24px rgba(15, 23, 42, 0.04)"
         }}>
           
-          {/* Logo + Invoice Info */}
+          {/* Top section */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
-            marginBottom: "24px",
-            gap: "16px",
+            gap: "20px",
+            marginBottom: "28px",
             flexWrap: "wrap"
           }}>
             <div>
@@ -281,9 +292,9 @@ export default function Home() {
               ) : (
                 <label className="no-print" style={{
                   display: "inline-block",
-                  padding: "20px",
+                  padding: "22px",
                   border: `2px dashed ${border}`,
-                  borderRadius: "10px",
+                  borderRadius: "12px",
                   cursor: "pointer",
                   color: muted,
                   fontSize: "14px"
@@ -294,35 +305,43 @@ export default function Home() {
               )}
             </div>
 
-            <div style={{ minWidth: "200px" }}>
-              <div style={{ marginBottom: "10px" }}>
-                <label style={{ fontSize: "13px", color: muted }}>Invoice Number</label>
-                <input
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  style={inputStyle(inputBg, border, text)}
-                />
-              </div>
-              <div style={{ marginBottom: "10px" }}>
-                <label style={{ fontSize: "13px", color: muted }}>Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  style={inputStyle(inputBg, border, text)}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: "13px", color: muted }}>Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  style={inputStyle(inputBg, border, text)}
-                >
+            <div style={{ minWidth: "220px" }}>
+              <Field label="Invoice Number" muted={muted}>
+                <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} style={inputStyle(inputBg, border, text)} />
+              </Field>
+              <Field label="Date" muted={muted}>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle(inputBg, border, text)} />
+              </Field>
+              <Field label="Due Date" muted={muted}>
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={inputStyle(inputBg, border, text)} />
+              </Field>
+              <Field label="Currency" muted={muted}>
+                <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={inputStyle(inputBg, border, text)}>
                   {currencies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
+              </Field>
+              <Field label="Status" muted={muted}>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle(inputBg, border, text)}>
+                  <option value="Unpaid">Unpaid</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </Field>
             </div>
+          </div>
+
+          {/* Status badge */}
+          <div style={{ marginBottom: "20px" }}>
+            <span style={{
+              display: "inline-block",
+              padding: "6px 12px",
+              borderRadius: "999px",
+              backgroundColor: status === "Paid" ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.12)",
+              color: statusColor,
+              fontSize: "13px",
+              fontWeight: "600"
+            }}>
+              {status}
+            </span>
           </div>
 
           {/* From / To */}
@@ -330,7 +349,7 @@ export default function Home() {
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: "16px",
-            marginBottom: "24px"
+            marginBottom: "28px"
           }}>
             <div>
               <h3 style={{ margin: "0 0 10px 0", fontSize: "15px" }}>From</h3>
@@ -355,26 +374,9 @@ export default function Home() {
               marginBottom: "10px",
               alignItems: "center"
             }}>
-              <input
-                placeholder="Description"
-                value={item.description}
-                onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                style={inputStyle(inputBg, border, text)}
-              />
-              <input
-                type="number"
-                placeholder="Qty"
-                value={item.quantity}
-                onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
-                style={inputStyle(inputBg, border, text)}
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                value={item.price}
-                onChange={(e) => updateItem(item.id, "price", e.target.value)}
-                style={inputStyle(inputBg, border, text)}
-              />
+              <input placeholder="Description" value={item.description} onChange={(e) => updateItem(item.id, "description", e.target.value)} style={inputStyle(inputBg, border, text)} />
+              <input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} style={inputStyle(inputBg, border, text)} />
+              <input type="number" placeholder="Price" value={item.price} onChange={(e) => updateItem(item.id, "price", e.target.value)} style={inputStyle(inputBg, border, text)} />
               <button onClick={() => removeItem(item.id)} className="no-print" style={{
                 padding: "8px 10px",
                 backgroundColor: darkMode ? "#450a0a" : "#fef2f2",
@@ -405,11 +407,7 @@ export default function Home() {
             maxWidth: "280px",
             marginLeft: "auto"
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-              <span style={{ color: muted }}>Subtotal</span>
-              <span>{currency} {subtotal.toFixed(2)}</span>
-            </div>
-
+            <Row label="Subtotal" value={`${currency} ${subtotal.toFixed(2)}`} muted={muted} />
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "center" }}>
               <span style={{ color: muted }}>Tax %</span>
               <input
@@ -427,18 +425,13 @@ export default function Home() {
                 }}
               />
             </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-              <span style={{ color: muted }}>Tax Amount</span>
-              <span>{currency} {taxAmount.toFixed(2)}</span>
-            </div>
-
+            <Row label="Tax Amount" value={`${currency} ${taxAmount.toFixed(2)}`} muted={muted} />
             <div style={{
               display: "flex",
               justifyContent: "space-between",
               fontWeight: "700",
-              fontSize: "18px",
-              marginTop: "10px"
+              fontSize: "20px",
+              marginTop: "12px"
             }}>
               <span>Total</span>
               <span>{currency} {total.toFixed(2)}</span>
@@ -446,7 +439,7 @@ export default function Home() {
           </div>
 
           {/* Notes */}
-          <div style={{ marginTop: "24px" }}>
+          <div style={{ marginTop: "28px" }}>
             <label style={{ fontSize: "13px", color: muted }}>Notes</label>
             <textarea
               value={notes}
@@ -454,9 +447,9 @@ export default function Home() {
               rows={3}
               style={{
                 width: "100%",
-                padding: "10px",
-                marginTop: "4px",
-                borderRadius: "8px",
+                padding: "12px",
+                marginTop: "6px",
+                borderRadius: "10px",
                 border: `1px solid ${border}`,
                 background: inputBg,
                 color: text,
@@ -474,12 +467,8 @@ export default function Home() {
 
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .invoice-print, .invoice-print * {
-            visibility: visible;
-          }
+          body * { visibility: hidden; }
+          .invoice-print, .invoice-print * { visibility: visible; }
           .invoice-print {
             position: absolute;
             left: 0;
@@ -488,11 +477,27 @@ export default function Home() {
             border: none !important;
             box-shadow: none !important;
           }
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function Field({ label, muted, children }) {
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <label style={{ fontSize: "13px", color: muted }}>{label}</label>
+      <div style={{ marginTop: "4px" }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value, muted }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+      <span style={{ color: muted }}>{label}</span>
+      <span>{value}</span>
     </div>
   );
 }
@@ -514,7 +519,7 @@ const btnPrimary = {
   backgroundColor: "#2563eb",
   color: "white",
   border: "none",
-  borderRadius: "8px",
+  borderRadius: "10px",
   fontWeight: "600",
   cursor: "pointer"
 };
@@ -524,14 +529,14 @@ const btnSuccess = {
   backgroundColor: "#16a34a",
   color: "white",
   border: "none",
-  borderRadius: "8px",
+  borderRadius: "10px",
   fontWeight: "600",
   cursor: "pointer"
 };
 
 const btnSecondary = {
   padding: "10px 16px",
-  borderRadius: "8px",
+  borderRadius: "10px",
   fontWeight: "500",
   cursor: "pointer"
 };
@@ -541,7 +546,7 @@ const btnDanger = {
   backgroundColor: "#fef2f2",
   color: "#dc2626",
   border: "none",
-  borderRadius: "8px",
+  borderRadius: "10px",
   cursor: "pointer"
 };
 
