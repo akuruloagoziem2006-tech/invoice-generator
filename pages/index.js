@@ -26,11 +26,12 @@ export default function Home() {
     const draft = localStorage.getItem("invoice-draft");
     const saved = localStorage.getItem("saved-invoices");
     const savedLogo = localStorage.getItem("invoice-logo");
+    const lastNumber = localStorage.getItem("last-invoice-number");
 
     if (draft) {
       try {
         const data = JSON.parse(draft);
-        setInvoiceNumber(data.invoiceNumber || "INV-001");
+        setInvoiceNumber(data.invoiceNumber || getNextInvoiceNumber(lastNumber));
         setDate(data.date || new Date().toISOString().slice(0, 10));
         setDueDate(data.dueDate || "");
         setStatus(data.status || "Unpaid");
@@ -44,6 +45,8 @@ export default function Home() {
         setCurrency(data.currency || "USD");
         setDarkMode(data.darkMode || false);
       } catch (e) {}
+    } else if (lastNumber) {
+      setInvoiceNumber(getNextInvoiceNumber(lastNumber));
     }
 
     if (saved) {
@@ -66,6 +69,28 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("saved-invoices", JSON.stringify(savedInvoices));
   }, [savedInvoices]);
+
+  // Auto status: Overdue if unpaid and past due date
+  useEffect(() => {
+    if (status === "Paid") return;
+    if (!dueDate) {
+      if (status === "Overdue") setStatus("Unpaid");
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (dueDate < today && status !== "Overdue") {
+      setStatus("Overdue");
+    } else if (dueDate >= today && status === "Overdue") {
+      setStatus("Unpaid");
+    }
+  }, [dueDate, status]);
+
+  function getNextInvoiceNumber(last = null) {
+    if (!last) return "INV-001";
+    const num = parseInt(String(last).replace(/\D/g, ""), 10);
+    if (isNaN(num)) return "INV-001";
+    return "INV-" + String(num + 1).padStart(3, "0");
+  }
 
   function addItem() {
     setItems([...items, { id: Date.now(), description: "", quantity: 1, price: 0 }]);
@@ -127,6 +152,7 @@ export default function Home() {
       logo
     };
     setSavedInvoices([invoice, ...savedInvoices]);
+    localStorage.setItem("last-invoice-number", invoiceNumber);
     alert("Invoice saved successfully");
   }
 
@@ -154,7 +180,8 @@ export default function Home() {
 
   function clearInvoice() {
     if (!confirm("Clear this invoice?")) return;
-    setInvoiceNumber("INV-001");
+    const lastNumber = localStorage.getItem("last-invoice-number");
+    setInvoiceNumber(getNextInvoiceNumber(lastNumber || invoiceNumber));
     setDate(new Date().toISOString().slice(0, 10));
     setDueDate("");
     setStatus("Unpaid");
@@ -174,7 +201,10 @@ export default function Home() {
   const border = darkMode ? "#1f2937" : "#e2e8f0";
   const inputBg = darkMode ? "#0b1220" : "#ffffff";
 
-  const statusColor = status === "Paid" ? "#16a34a" : "#dc2626";
+  const statusColor =
+    status === "Paid" ? "#16a34a" :
+    status === "Overdue" ? "#ea580c" :
+    "#dc2626";
 
   return (
     <div style={{
@@ -186,7 +216,6 @@ export default function Home() {
     }}>
       <div style={{ maxWidth: "880px", margin: "0 auto" }}>
         
-        {/* Header */}
         <div style={{
           display: "flex",
           justifyContent: "space-between",
@@ -214,7 +243,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Actions */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "18px", flexWrap: "wrap" }}>
           <button onClick={handlePrint} style={btnPrimary}>Print / Save PDF</button>
           <button onClick={saveInvoice} style={btnSuccess}>Save Invoice</button>
@@ -224,7 +252,6 @@ export default function Home() {
           <button onClick={clearInvoice} style={btnDanger}>Clear</button>
         </div>
 
-        {/* Saved Invoices */}
         {showSaved && (
           <div style={{
             backgroundColor: card,
@@ -261,7 +288,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Invoice Card */}
         <div className="invoice-print" style={{
           backgroundColor: card,
           borderRadius: "18px",
@@ -271,7 +297,6 @@ export default function Home() {
           boxShadow: darkMode ? "none" : "0 8px 24px rgba(15, 23, 42, 0.04)"
         }}>
           
-          {/* Top section */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
@@ -324,18 +349,21 @@ export default function Home() {
                 <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle(inputBg, border, text)}>
                   <option value="Unpaid">Unpaid</option>
                   <option value="Paid">Paid</option>
+                  <option value="Overdue">Overdue</option>
                 </select>
               </Field>
             </div>
           </div>
 
-          {/* Status badge */}
           <div style={{ marginBottom: "20px" }}>
             <span style={{
               display: "inline-block",
               padding: "6px 12px",
               borderRadius: "999px",
-              backgroundColor: status === "Paid" ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.12)",
+              backgroundColor:
+                status === "Paid" ? "rgba(22,163,74,0.12)" :
+                status === "Overdue" ? "rgba(234,88,12,0.12)" :
+                "rgba(220,38,38,0.12)",
               color: statusColor,
               fontSize: "13px",
               fontWeight: "600"
@@ -344,7 +372,6 @@ export default function Home() {
             </span>
           </div>
 
-          {/* From / To */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
@@ -363,7 +390,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Items */}
           <h3 style={{ margin: "0 0 12px 0", fontSize: "15px" }}>Items</h3>
           
           {items.map((item) => (
@@ -400,7 +426,6 @@ export default function Home() {
             fontWeight: "500"
           }}>+ Add Item</button>
 
-          {/* Totals */}
           <div style={{
             borderTop: `1px solid ${border}`,
             paddingTop: "16px",
@@ -438,7 +463,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Notes */}
           <div style={{ marginTop: "28px" }}>
             <label style={{ fontSize: "13px", color: muted }}>Notes</label>
             <textarea
